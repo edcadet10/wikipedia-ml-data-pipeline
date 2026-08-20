@@ -1,0 +1,26 @@
+name: Benchmark result
+description: Submit a reproducible pipeline or loader measurement
+title: "benchmark: "
+labels: [benchmark, needs-review]
+body:
+  - type: textarea
+    id: claim
+    attributes:
+      label: Claim and kill criterion
+      description: State the narrow claim and the result that would falsify it.
+    validations:
+      required: true
+  - type: textarea
+    id: command
+    attributes:
+      label: Exact commands and raw samples
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Source and environment
+      description: Commit, lockfile, dump URL/checksum, hardware, OS, and Python version.
+    validations:
+      required: true

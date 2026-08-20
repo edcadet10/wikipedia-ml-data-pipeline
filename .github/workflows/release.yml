@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]*.[0-9]*.[0-9]*"]
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Verify, attest, and publish release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      attestations: write # Required to persist the signed build attestation.
+      contents: write # Required to create the GitHub release and upload artifacts.
+      id-token: write # Required to sign build provenance with GitHub OIDC.
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.11.3"
+          enable-cache: false
+      - name: Install locked dependencies
+        run: uv sync --locked --all-groups
+      - name: Verify tag matches package version
+        run: |
+          package_version="$(uv run python -c 'import wikiml; print(wikiml.__version__)')"
+          test "v${package_version}" = "${GITHUB_REF_NAME}"
+      - name: Run release gates
+        run: |
+          uv run ruff format --check .
+          uv run ruff check .
+          uv run mypy
+          uv run pytest --cov --cov-report=term-missing
+          uv export --locked --no-emit-project --all-groups --format requirements-txt | uv run pip-audit --strict -r /dev/stdin
+      - name: Build and inspect distributions
+        run: |
+          uv build --clear
+          uv run twine check --strict dist/*
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* --generate-notes --verify-tag

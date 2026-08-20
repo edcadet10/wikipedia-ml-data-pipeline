@@ -1,0 +1,5 @@
+* text=auto eol=lf
+*.bin binary
+*.bz2 binary
+*.parquet binary
+uv.lock text eol=lf

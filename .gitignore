@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.venv/
+dist/
+build/
+
+# Generated datasets and local tools
+artifacts/
+data/
+*.parquet
+*.bin
+*.bz2
+*.jsonl
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/
+*.swp

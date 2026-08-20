@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If this software supports your work, cite the repository and release."
+title: "Wikipedia ML Data Pipeline"
+type: software
+authors:
+  - family-names: Cadet
+    given-names: Jeff
+repository-code: "https://github.com/edcadet10/wikipedia-ml-data-pipeline"
+url: "https://github.com/edcadet10/wikipedia-ml-data-pipeline"
+version: 0.1.0
+license: Apache-2.0

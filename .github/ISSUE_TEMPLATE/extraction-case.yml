@@ -1,0 +1,26 @@
+name: Extraction edge case
+description: Supply a parser case that challenges current behavior
+title: "extract: "
+labels: [extraction, needs-triage]
+body:
+  - type: input
+    id: revision
+    attributes:
+      label: Page and revision identity
+      description: Canonical URL, page ID, revision ID, and dump snapshot.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Failing evidence
+      description: Minimal source fragment, current output, and expected semantic result.
+    validations:
+      required: true
+  - type: textarea
+    id: license
+    attributes:
+      label: Attribution and license note
+      description: Explain how the submitted fixture may be redistributed.
+    validations:
+      required: true

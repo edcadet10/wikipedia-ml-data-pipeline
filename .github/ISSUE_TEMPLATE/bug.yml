@@ -1,0 +1,36 @@
+name: Bug report
+description: Report reproducible incorrect behavior
+title: "bug: "
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include private data or security vulnerabilities here.
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Minimal reproduction
+      description: Include exact commands and the smallest safe fixture.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Python, package version/commit, source dump identity, and tokenizer hash.
+    validations:
+      required: true
+  - type: dropdown
+    id: data
+    attributes:
+      label: Does the report include redistributed Wikipedia text?
+      options: ["No", "Yes, with source and attribution"]
+    validations:
+      required: true

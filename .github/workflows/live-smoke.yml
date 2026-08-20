@@ -1,0 +1,68 @@
+name: Live Wikimedia smoke
+
+on:
+  schedule:
+    - cron: "43 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      wiki:
+        description: Wikimedia database identifier
+        required: true
+        default: simplewiki
+        type: string
+      snapshot:
+        description: Dump snapshot (latest or YYYYMMDD)
+        required: true
+        default: latest
+        type: string
+      stream:
+        description: Zero-based stream ordinal
+        required: true
+        default: "0"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: live-wikimedia-smoke
+  cancel-in-progress: false
+
+env:
+  UV_NO_PROGRESS: "1"
+
+jobs:
+  probe:
+    name: Probe current Simple English Wikipedia dump
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: Set up uv
+        uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
+        with:
+          version: "0.11.3"
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install locked runtime
+        run: uv sync --locked --no-group dev
+      - name: Probe live source and validate
+        env:
+          INPUT_WIKI: ${{ inputs.wiki || 'simplewiki' }}
+          INPUT_SNAPSHOT: ${{ inputs.snapshot || 'latest' }}
+          INPUT_STREAM: ${{ inputs.stream || '0' }}
+        run: |
+          output="${RUNNER_TEMP}/wikiml-live-smoke"
+          uv run wikiml probe \
+            --wiki "${INPUT_WIKI}" \
+            --snapshot "${INPUT_SNAPSHOT}" \
+            --stream "${INPUT_STREAM}" \
+            --output "${output}"
+          uv run wikiml validate "${output}"
