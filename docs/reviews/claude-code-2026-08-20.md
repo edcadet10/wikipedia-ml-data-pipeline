@@ -8,7 +8,8 @@
   attribution, checkpointing, and claim boundaries
 - Review dates: 2026-08-20 through 2026-08-21
 - Contract-6 exact commit: `25d9f53fb508eb8860bc5511b548a153198c899e`
-- Final contract-7 exact commit: pending the completed acceptance candidate
+- Final contract-7 implementation commit:
+  `4a12315edf8778fe7f1493c2d9ba4f33c05a0b24`
 
 Claude Code is an independent implementation reviewer for this gate, not the human
 semantic reviewer or the human licensing reviewer. Runs that exhausted their budget
@@ -32,7 +33,11 @@ review evidence.
 | Contract-6 scoped attempt | $2.5467240 | No verdict; excluded | Reached its budget without a disposition. |
 | Contract-6 exact-commit audit | $1.6988313 | PASS | Read-only hostile review of `25d9f53fb508eb8860bc5511b548a153198c899e`; no critical/high finding. Reported bounded-decompression, XML-hardening, and manual-container-gate observations as non-blocking. |
 | GitHub CodeQL PR scan | n/a | BLOCK | Two high-severity `py/bad-tag-filter` alerts: extraction and independent validation recognized `-->` but not the HTML parser's alternate `--!>` comment end form. Fixed in both paths, covered by regressions, and invalidated as pipeline contract 7. |
-| Contract-7 exact-commit audit | Pending | Pending | Must complete before merge; every critical/high finding blocks. |
+| Contract-7 exact-commit audit | $1.1024604 | PASS | Read-only hostile review of `4a12315edf8778fe7f1493c2d9ba4f33c05a0b24`; verified both regex paths, targeted regressions, independent validation, contract-7 checkpoint invalidation, and the broader critical/high categories. No critical/high finding. |
+
+GitHub CI, dependency review, CodeQL analysis, and the CodeQL pull-request gate all
+passed on the same implementation commit. The final CodeQL gate reported no remaining
+alert from the two contract-6 `py/bad-tag-filter` findings.
 
 ## Contract-6 resolution evidence
 
