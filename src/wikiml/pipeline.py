@@ -14,7 +14,7 @@ from wikiml.errors import SourceError, ValidationError
 from wikiml.extract import extract_documents
 from wikiml.manifest import build_manifest, write_manifest
 from wikiml.models import SplitConfig
-from wikiml.source import DEFAULT_USER_AGENT, WikimediaClient, parse_multistream_index
+from wikiml.source import DEFAULT_USER_AGENT, WikimediaClient, parse_multistream_catalog
 from wikiml.split import partition_documents
 from wikiml.storage import write_documents, write_dropped
 from wikiml.tokenize import write_token_shards
@@ -78,7 +78,8 @@ def run_probe(config: ProbeConfig) -> dict[str, Any]:
         ) as client:
             dump_size = client.content_length(dump_url)
             index = client.download(index_url, max_bytes=config.max_index_bytes)
-            ranges = parse_multistream_index(index.body, dump_size=dump_size)
+            catalog = parse_multistream_catalog(index.body, dump_size=dump_size)
+            ranges = catalog.ranges
             if config.stream_ordinal >= len(ranges):
                 raise SourceError(
                     f"stream ordinal {config.stream_ordinal} is outside 0..{len(ranges) - 1}"
@@ -86,7 +87,11 @@ def run_probe(config: ProbeConfig) -> dict[str, Any]:
             selected = ranges[config.stream_ordinal]
             segment = client.download_range(dump_url, selected, max_bytes=config.max_stream_bytes)
 
-        extracted = extract_documents(segment.body, wiki=config.wiki)
+        extracted = extract_documents(
+            segment.body,
+            wiki=config.wiki,
+            expected_page_ids=catalog.page_ids_by_stream[config.stream_ordinal],
+        )
         documents = partition_documents(extracted.documents, config.split)
         documents_summary, content_sha256 = write_documents(documents, staging)
         dropped_summary = write_dropped(extracted.dropped, staging)

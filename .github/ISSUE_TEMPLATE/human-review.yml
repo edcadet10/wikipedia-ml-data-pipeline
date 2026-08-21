@@ -1,0 +1,45 @@
+name: Human release review
+description: Record semantic-extraction or licensing review for a release candidate
+title: "review: "
+labels: [needs-review]
+body:
+  - type: dropdown
+    id: review_kind
+    attributes:
+      label: Review type
+      options:
+        - Semantic extraction
+        - Licensing and attribution
+    validations:
+      required: true
+  - type: input
+    id: release_identity
+    attributes:
+      label: Release identity
+      description: Commit, snapshot, manifest SHA-256, and candidate/review file SHA-256.
+    validations:
+      required: true
+  - type: textarea
+    id: protocol
+    attributes:
+      label: Protocol and evidence
+      description: Follow docs/review-protocol.md and attach decisions without corpus text.
+    validations:
+      required: true
+  - type: textarea
+    id: findings
+    attributes:
+      label: Findings and conditions
+      description: Include counts, concrete issues, unresolved risks, and required conditions.
+    validations:
+      required: true
+  - type: dropdown
+    id: decision
+    attributes:
+      label: Decision
+      options:
+        - Approve
+        - Approve with conditions
+        - Reject
+    validations:
+      required: true

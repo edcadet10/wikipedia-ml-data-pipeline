@@ -7,6 +7,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any, cast
 
+from wikiml import __version__
 from wikiml.models import ArtifactSummary, SplitConfig, TokenizationSummary
 
 
@@ -27,7 +28,7 @@ def build_manifest(
         "schema_version": 1,
         "project": {
             "name": "wikipedia-ml-data-pipeline",
-            "version": "0.1.0",
+            "version": __version__,
             "scope": "one_multistream_segment",
         },
         "source": source,

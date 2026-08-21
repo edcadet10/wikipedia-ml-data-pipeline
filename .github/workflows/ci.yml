@@ -93,3 +93,17 @@ jobs:
         run: uv sync --locked --all-groups --python "${PYTHON_VERSION}"
       - name: Run compatibility tests
         run: uv run --python "${PYTHON_VERSION}" pytest -q --no-cov
+
+  reproducibility-container:
+    name: Pinned container and non-root entry point
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build pinned image
+        run: docker build --pull=false --file Dockerfile.repro --tag wikiml-repro .
+      - name: Exercise installed entry point as an unprivileged user
+        run: docker run --rm --user 65534:65534 wikiml-repro --version

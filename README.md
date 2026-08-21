@@ -6,60 +6,67 @@
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB.svg)](pyproject.toml)
 [![Contributions](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-An auditable path from Wikimedia's compressed XML dumps to document-level Parquet
-and optional fixed-length token shards. Every emitted record retains provenance;
-every dropped page has a reason; every artifact is hash-linked from a manifest.
+A restartable, auditable path from Wikimedia's compressed XML dumps to
+document-level Parquet and optional fixed-length token shards. Every emitted record
+retains revision provenance, every indexed page has a decision, and every published
+artifact is hash-linked from a manifest.
 
-> **Current scope — v0.1:** a tested vertical slice for one independently compressed
-> `pages-articles-multistream` segment. Full-dump orchestration, semantic extraction
-> accuracy, and corpus-level quality are explicit validation targets—not current claims.
+> **Qualification status — v0.2:** complete dated-dump orchestration and exhaustive
+> mechanical validation are implemented. Human semantic and licensing reviews remain
+> separate release gates; the software does not turn a finite review into a corpus-wide
+> quality or legal-compliance claim.
 
 ## Why this exists
 
-“Convert Wikipedia into training data” hides the engineering work that determines
-whether a dataset is reproducible or trustworthy: mutable sources, compressed-stream
-boundaries, wiki markup, document leakage, tokenizer identity, interrupted jobs,
-silent exclusions, and content licensing.
+“Convert Wikipedia into training data” hides the engineering decisions that determine
+whether the result can be reproduced or trusted: mutable sources, compressed-stream
+boundaries, wiki markup, interrupted jobs, split leakage, tokenizer identity, silent
+exclusions, and content licensing.
 
-This repository makes those decisions inspectable. It is both a practical data tool
-and an open research-engineering project where benchmark results, parser edge cases,
-and design critiques can be reviewed in public.
+This project makes those decisions inspectable through checksums, checkpoints,
+deterministic merge order, adversarial tests, independent validation, data cards, and
+explicit claim boundaries.
 
-## What the vertical slice does
+## What v0.2 does
 
-- reads Wikimedia's compressed multistream index and resolves an exact byte range;
-- rejects servers that ignore or alter the requested HTTP range;
-- parses latest-revision namespace-zero pages from a genuine bzip2 stream;
-- records redirects, non-article namespaces, invalid pages, and empty text as explicit drops;
-- normalizes wikitext while preserving paragraph boundaries and source identifiers;
-- assigns whole documents to splits with a stable hash of `page_id`;
-- writes a declared Apache Parquet schema with canonical logical-content hashes;
-- optionally packs a local, hash-pinned tokenizer JSON into little-endian token shards;
-- validates hashes, schema, page accounting, split assignment, shard shape, and token bounds;
-- publishes no output directory until those mechanical checks pass.
+- requires a dated Wikimedia snapshot and verifies the complete dump and index against
+  Wikimedia's published SHA-1 manifest;
+- downloads the dump with a hard byte bound and processes independently compressed
+  streams with bounded process concurrency;
+- commits one validated, identity-bound checkpoint per stream and resumes idempotently;
+- compares XML page order with every page ID in the bundled multistream index;
+- records an `emitted` or declared `dropped` decision for every indexed page;
+- reparses once after removing declared non-prose links, tables, reference blocks, and
+  boilerplate sections, then explicitly drops structurally ambiguous markup residue;
+- retains normalized text only when it contains at least three alphabetic words;
+- assigns whole pages to stable splits using a seeded hash of `page_id`;
+- merges in canonical source order regardless of worker completion order;
+- writes document, attribution, source-index, stream, decision, audit, and data-card
+  artifacts before atomically publishing the output directory;
+- optionally tokenizes from Parquet with a local, bundled, SHA-256-pinned tokenizer and
+  runs a tiny NumPy bigram-training smoke test;
+- independently streams every artifact back through a schema-v2 validator.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    A[Wikimedia dump index] -->|unique offsets| B[Exact HTTP range]
-    C[pages-articles multistream] --> B
-    B --> D[Bzip2 + XML parser]
-    D --> E{Page decision}
-    E -->|keep| F[Normalized document]
-    E -->|drop| G[Reason ledger]
-    F --> H[Stable page-level split]
-    H --> I[Document Parquet]
-    H --> J[Local tokenizer JSON]
-    J --> K[Fixed-length binary shards]
-    G --> L[Manifest + validator]
-    I --> L
-    K --> L
+    A[Dated dump status + SHA-1 manifest] --> B[Bounded dump + index acquisition]
+    B --> C[Validated multistream catalog]
+    C --> D[Bounded process workers]
+    D --> E[Atomic per-stream checkpoints]
+    E --> F[Canonical ordinal/page-ID merge]
+    F --> G[Documents + decisions + attribution]
+    G --> H[Exact/near duplicate audit]
+    G --> I[Optional pinned tokenization]
+    I --> J[Tiny-model smoke]
+    H --> K[Independent streaming validator]
+    J --> K
+    K --> L[Atomic publication]
 ```
 
-The full data contract and trust boundaries are documented in
-[`docs/data-contract.md`](docs/data-contract.md) and
-[`docs/architecture.md`](docs/architecture.md).
+See [the architecture](docs/architecture.md), [data contract](docs/data-contract.md),
+and [acceptance policy](docs/validation.md) for the exact trust boundaries.
 
 ## Quick start
 
@@ -70,35 +77,58 @@ git clone https://github.com/edcadet10/wikipedia-ml-data-pipeline.git
 cd wikipedia-ml-data-pipeline
 uv sync --locked --all-groups
 
-# Download and process one current Simple English Wikipedia stream.
+# Small network and format probe: one independently compressed stream.
 uv run wikiml probe --output artifacts/simplewiki-stream-0
-
-# Independently re-check every declared artifact.
 uv run wikiml validate artifacts/simplewiki-stream-0
-
-# Inspect exact source offsets, hashes, transformations, counts, and claims.
-uv run wikiml inspect artifacts/simplewiki-stream-0
 ```
 
-`latest` is intentionally marked mutable in the manifest. For an archival experiment,
-pass a dated Wikimedia snapshot:
+### Complete dated-dump build
+
+Full builds reject `latest`; provide an immutable snapshot date and keep the work
+directory outside the output directory. The work directory holds the verified dump
+and restart checkpoints.
 
 ```bash
-uv run wikiml probe \
+uv run wikiml build \
   --wiki simplewiki \
   --snapshot YYYYMMDD \
-  --stream 0 \
-  --output artifacts/simplewiki-YYYYMMDD-stream-0
+  --workers 4 \
+  --work-dir artifacts/work/simplewiki-YYYYMMDD \
+  --output artifacts/simplewiki-YYYYMMDD
+
+# Re-run the exhaustive validator without trusting the build process.
+uv run wikiml validate artifacts/simplewiki-YYYYMMDD
+uv run wikiml inspect artifacts/simplewiki-YYYYMMDD
 ```
+
+If a run stops, repeat the same command. Every reused checkpoint is revalidated against
+the source segment, source-index page IDs, build identity, split rule, schemas, counts,
+and hashes. `--discard-work` removes checkpoints after publication; output and work
+paths must be disjoint in both nesting directions.
+
+For a deliberate restart test, use one worker and inject a stop after completed streams:
+
+```bash
+uv run wikiml build \
+  --wiki simplewiki --snapshot YYYYMMDD --workers 1 \
+  --fail-after-streams 100 \
+  --work-dir artifacts/work/restart-test \
+  --output artifacts/restart-test
+```
+
+That command must fail without publishing an output. Resume without
+`--fail-after-streams`, optionally with a different worker count.
 
 ### Optional token shards
 
 Tokenization never silently downloads a model asset. Supply a local Hugging Face
-`tokenizer.json` and its EOS token ID; the tokenizer file's SHA-256 becomes part of
-the dataset manifest.
+`tokenizer.json` and its EOS token ID. The tokenizer is copied into the dataset and its
+SHA-256, byte count, vocabulary size, and EOS ID become part of the manifest.
 
 ```bash
-uv run wikiml probe \
+uv run wikiml build \
+  --wiki simplewiki --snapshot YYYYMMDD \
+  --work-dir artifacts/work/simplewiki-tokenized \
   --output artifacts/simplewiki-tokenized \
   --tokenizer-json /absolute/path/to/tokenizer.json \
   --eos-token-id 50256 \
@@ -106,8 +136,8 @@ uv run wikiml probe \
   --sequences-per-shard 4096
 ```
 
-Binary files contain contiguous little-endian `uint16` or `uint32` token IDs and can
-be memory-mapped without a framework-specific serialization layer:
+Shards are contiguous little-endian `uint16` or `uint32` token IDs and can be
+memory-mapped without framework-specific serialization:
 
 ```python
 from pathlib import Path
@@ -122,78 +152,79 @@ shard = TokenShard(
 first_sequence = shard[0]
 ```
 
-## Output contract
+## Full-build output
 
 ```text
 dataset/
-├── documents.parquet       # canonical document rows
-├── dropped-pages.jsonl     # every exclusion and its reason
-├── manifest.json           # source, configuration, hashes, counts, and claim scope
-└── tokens/                 # present only when tokenization is requested
+├── DATA_CARD.md                     # source, transformations, limitations, licensing
+├── attribution.parquet              # revision-level attribution without training text
+├── corpus-audit.json                # exhaustive exact + bounded near-duplicate results
+├── documents.parquet                # canonical document rows
+├── dropped-pages.jsonl              # explicit exclusions and reasons
+├── manifest.json                     # source, configuration, hashes, counts, claims
+├── page-decisions.parquet            # one decision for every source-index page ID
+├── semantic-review-candidates.jsonl  # deterministic 10-per-length-stratum packet
+├── source-index.txt.bz2              # exact index used for page accounting
+├── streams.jsonl                     # every source range and checkpoint summary
+├── tokenizer.json                    # present only for tokenized builds
+└── tokens/                            # present only for tokenized builds
     ├── train-00000.bin
     ├── validation-00000.bin
     └── test-00000.bin
 ```
 
-Each Parquet row contains:
+## Claims and review policy
 
-| Field | Meaning |
-|---|---|
-| `wiki` | Source Wikimedia database, such as `simplewiki` |
-| `page_id` | Stable page identifier used for split assignment |
-| `revision_id` | Exact latest revision represented in the dump |
-| `revision_timestamp` | Source revision timestamp |
-| `title`, `url` | Human-readable identity and attribution path |
-| `text` | Normalized extracted text |
-| `text_sha256` | Hash of the normalized UTF-8 text |
-| `split` | Deterministic `train`, `validation`, or `test` assignment |
-| `license` | Source-content license identifier |
+`wikiml validate` exhaustively checks the declared mechanical invariants. It does not
+establish population-wide semantic accuracy, eliminate every content-level leakage
+mode, demonstrate model quality, or provide legal advice.
 
-## Validation and claims policy
+The pre-registered full acceptance gate requires a real dated run, injected failure
+and resume, a clean second-environment reproduction, exact and sampled duplicate
+probes, every-shard scanning, tiny-model training, independent engineering review,
+and separate human semantic/licensing decisions. See [validation](docs/validation.md)
+and the [review protocol](docs/review-protocol.md).
 
-`wikiml validate` exhaustively checks mechanical invariants declared by the manifest.
-It does **not** convert those checks into claims about semantic extraction quality,
-population-wide deduplication, model quality, or legal compliance.
+After a human records all 30 decisions in the protocol's separate JSONL format, verify
+completeness, revision identity, labels, and the sample-limited conclusion with:
 
-Before this project claims full-dump reliability, the acceptance work in
-[`docs/validation.md`](docs/validation.md) requires a dated checksum-pinned source,
-complete page accounting, cross-worker reproducibility, interruption recovery,
-stratified extraction review, leakage tests, and a training-loader smoke test.
+```bash
+uv run wikiml review-semantic artifacts/simplewiki-YYYYMMDD decisions.jsonl
+```
 
 ## Development
 
 ```bash
-uv run ruff format --check .
-uv run ruff check .
-uv run mypy
-uv run pytest --cov --cov-report=term-missing
-uv build --clear
-uv run twine check --strict dist/*
-uv export --locked --no-emit-project --all-groups --format requirements-txt | uv run pip-audit --strict -r /dev/stdin
+make check
+docker build -f Dockerfile.repro -t wikiml-repro .
+docker run --rm --user 65534:65534 wikiml-repro --version
 ```
 
-CI runs the same gates from the committed lockfile. Actions are pinned to immutable
-commit SHAs and receive minimum token permissions. See
-[`CONTRIBUTING.md`](CONTRIBUTING.md) for the contribution workflow.
+The check target runs formatting, linting, strict type checking, branch-aware tests
+with a 90% coverage floor, package build and metadata checks, and a locked dependency
+audit. CI tests Python 3.11, 3.12, and 3.13. Actions and the reproducibility container
+base are pinned to immutable revisions.
 
 ## Collaboration
 
-Bug reports, extraction fixtures, benchmark results, tokenizer adapters, design
-reviews, and falsifying examples are welcome. Use
+Bug reports, extraction fixtures, falsifying examples, benchmarks, data reviews, and
+design critiques are welcome. Use
 [Issues](https://github.com/edcadet10/wikipedia-ml-data-pipeline/issues) for actionable
 work and [Discussions](https://github.com/edcadet10/wikipedia-ml-data-pipeline/discussions)
-for open-ended proposals and research questions.
+for research questions. The [contribution guide](CONTRIBUTING.md) explains the evidence
+expected for behavior, performance, schema, and claim changes.
 
 ## Data and licensing
 
-The source code is licensed under [Apache-2.0](LICENSE). Wikipedia text has separate
-license and attribution requirements; generated artifacts are not relicensed by the
-code license. Read [`DATA_LICENSE.md`](DATA_LICENSE.md) before redistributing Parquet
-or token shards. This repository does not bundle a Wikipedia corpus.
+Source code is [Apache-2.0](LICENSE). Wikipedia content has separate attribution,
+license-notice, change-indication, ShareAlike, and possibly page-specific obligations.
+Generated corpora are not relicensed by this repository. Read
+[the data licensing notice](DATA_LICENSE.md) before redistribution. No Wikipedia corpus
+is committed to GitHub.
 
 ## Technical basis
 
-- [Wikimedia data dumps](https://meta.wikimedia.org/wiki/Data_dumps)
-- [Wikimedia User-Agent policy](https://foundation.wikimedia.org/wiki/Policy:Wikimedia_Foundation_User-Agent_Policy)
-- [Apache Arrow Parquet documentation](https://arrow.apache.org/docs/python/parquet.html)
+- [Wikimedia dump format](https://meta.wikimedia.org/wiki/Data_dumps/Dump_format)
+- [Wikimedia Terms of Use: licensing of content](https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use/en#7._Licensing_of_Content)
+- [Apache Arrow Parquet](https://arrow.apache.org/docs/python/parquet.html)
 - [Hugging Face Tokenizers](https://huggingface.co/docs/tokenizers/)

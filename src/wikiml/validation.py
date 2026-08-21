@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
@@ -40,6 +41,10 @@ def validate_dataset(root: Path) -> ValidationReport:
     errors: list[str] = []
     try:
         manifest = read_manifest(root)
+        if manifest.get("schema_version") == 2:
+            from wikiml.full_validation import validate_full_dataset
+
+            return validate_full_dataset(root, manifest)
         if manifest.get("schema_version") != 1:
             errors.append("unsupported manifest schema_version")
             return ValidationReport(tuple(checks), tuple(errors))
@@ -90,6 +95,8 @@ def validate_dataset(root: Path) -> ValidationReport:
             seed=str(split_raw["seed"]),
         )
         for row in rows:
+            if hashlib.sha256(str(row["text"]).encode()).hexdigest() != row["text_sha256"]:
+                errors.append(f"page {row['page_id']} text SHA-256 mismatch")
             expected = assign_split(int(row["page_id"]), split_config)
             if row["split"] != expected:
                 errors.append(f"page {row['page_id']} has a non-deterministic split")
@@ -109,6 +116,14 @@ def validate_dataset(root: Path) -> ValidationReport:
         tokenization_raw = artifacts.get("tokenization")
         if tokenization_raw is not None:
             tokenization = _mapping(tokenization_raw, "tokenization")
+            tokenizer_path = _artifact_path(root, tokenization.get("tokenizer_path"))
+            if not tokenizer_path.is_file():
+                errors.append("missing tokenizer artifact")
+            else:
+                if tokenizer_path.stat().st_size != tokenization.get("tokenizer_bytes"):
+                    errors.append("tokenizer byte count mismatch")
+                if sha256_file(tokenizer_path) != tokenization.get("tokenizer_sha256"):
+                    errors.append("tokenizer SHA-256 mismatch")
             dtype_name = tokenization.get("dtype")
             if dtype_name not in _DTYPES:
                 errors.append("unsupported token dtype")

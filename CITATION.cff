@@ -7,5 +7,5 @@ authors:
     given-names: Jeff
 repository-code: "https://github.com/edcadet10/wikipedia-ml-data-pipeline"
 url: "https://github.com/edcadet10/wikipedia-ml-data-pipeline"
-version: 0.1.0
+version: 0.2.0
 license: Apache-2.0

@@ -38,7 +38,7 @@ class FakeWikimediaClient:
         return 10 + len(self.segment)
 
     def download(self, _url: str, *, max_bytes: int) -> DownloadedBytes:
-        index = bz2.compress(b"10:1:Alpha\n")
+        index = bz2.compress(b"10:1:Alpha\n10:2:Redirect\n10:3:Talk\n10:4:Empty\n10:5:Unicode\n")
         assert len(index) < max_bytes
         return DownloadedBytes(index, '"index"', "Thu, 20 Aug 2026 12:00:00 GMT")
 
