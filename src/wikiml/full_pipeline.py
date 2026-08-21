@@ -52,7 +52,7 @@ from wikiml.tokenize import write_token_shards_from_parquet
 from wikiml.validation import validate_dataset
 
 _GIBIBYTE = 1024 * _MEBIBYTE
-FULL_PIPELINE_CONTRACT_VERSION = 6
+FULL_PIPELINE_CONTRACT_VERSION = 7
 _SHA1_LINE = re.compile(r"^([0-9a-f]{40})  (\S+)$")
 _DROP_REASONS = (
     "redirect",

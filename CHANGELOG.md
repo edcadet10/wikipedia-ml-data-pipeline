@@ -26,7 +26,7 @@ and releases use [Semantic Versioning](https://semver.org/).
   `markup_residue` instead of guessing their boundaries.
 - Missing or malformed XML page IDs are ledgered using the corresponding validated
   source-index identity; page-order disagreement is a hard failure.
-- Package version is now 0.2.0 and the full-pipeline semantic contract is version 6.
+- Package version is now 0.2.0 and the full-pipeline semantic contract is version 7.
 
 ### Fixed
 
@@ -35,6 +35,8 @@ and releases use [Semantic Versioning](https://semver.org/).
   successfully published dataset.
 - Publish the dataset root as `0755` rather than retaining `mkdtemp`'s owner-only `0700`
   mode, allowing a different unprivileged UID to consume a read-only mount.
+- Recognize the HTML parser's alternate `--!>` comment end form in extraction and
+  independent residual-markup validation.
 
 ## [0.1.0] - 2026-08-19
 
