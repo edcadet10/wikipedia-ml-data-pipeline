@@ -7,7 +7,8 @@
 - Method: read-only, hostile review of the implementation, tests, validation,
   attribution, checkpointing, and claim boundaries
 - Review dates: 2026-08-20 through 2026-08-21
-- Final exact commit: pending the completed acceptance candidate
+- Contract-6 exact commit: `25d9f53fb508eb8860bc5511b548a153198c899e`
+- Final contract-7 exact commit: pending the completed acceptance candidate
 
 Claude Code is an independent implementation reviewer for this gate, not the human
 semantic reviewer or the human licensing reviewer. Runs that exhausted their budget
@@ -29,7 +30,9 @@ review evidence.
 | Contract-6 structural-residue audit | $1.1394165 | BLOCK | Critical: an inline table-attribute fragment could evade both extraction and validation. Medium: the validator reported only the first residual page. Fixed with distinct safe-line cleanup and inline-residue detection, full count/sample reporting, and extractor/validator regressions. |
 | Contract-6 follow-up attempt | $0.9341878 | No verdict; excluded | Reached its budget while attempting denied shell checks. |
 | Contract-6 scoped attempt | $2.5467240 | No verdict; excluded | Reached its budget without a disposition. |
-| Final exact-commit audit | Pending | Pending | Must complete before merge; every critical/high finding blocks. |
+| Contract-6 exact-commit audit | $1.6988313 | PASS | Read-only hostile review of `25d9f53fb508eb8860bc5511b548a153198c899e`; no critical/high finding. Reported bounded-decompression, XML-hardening, and manual-container-gate observations as non-blocking. |
+| GitHub CodeQL PR scan | n/a | BLOCK | Two high-severity `py/bad-tag-filter` alerts: extraction and independent validation recognized `-->` but not the HTML parser's alternate `--!>` comment end form. Fixed in both paths, covered by regressions, and invalidated as pipeline contract 7. |
+| Contract-7 exact-commit audit | Pending | Pending | Must complete before merge; every critical/high finding blocks. |
 
 ## Contract-6 resolution evidence
 
@@ -48,6 +51,13 @@ locked dependency.
 
 ## Residual risks
 
+- Per-stream and index bzip2 decompression is checksum-bound but does not impose an
+  explicit decompressed-size ceiling.
+- XML extraction uses the standard-library parser rather than a hardened third-party
+  parser. The published-checksum trust boundary reduces, but does not erase, parser DoS
+  risk.
+- The pinned container's unprivileged entry point is checked in CI, while the complete
+  zero-checkpoint reproduction remains a per-candidate manual acceptance experiment.
 - Structural-residue rules are intentionally conservative and can exclude legitimate
   articles that discuss wiki/HTML syntax. Exclusion is preferred to guessing malformed
   boundaries, and the exact count is reported.

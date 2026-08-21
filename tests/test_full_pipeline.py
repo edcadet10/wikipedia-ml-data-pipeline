@@ -646,6 +646,18 @@ def test_full_validation_rejects_artifact_and_ledger_corruption(
     assert any("1 documents retain structural markup" in error for error in report.errors)
     documents_path.write_bytes(original_documents)
 
+    document_rows = pq.read_table(documents_path).to_pylist()
+    document_rows[0]["text"] += " Alternate HTML comment close --!> survives."
+    document_rows[0]["text_sha256"] = hashlib.sha256(document_rows[0]["text"].encode()).hexdigest()
+    pq.write_table(pa.Table.from_pylist(document_rows, schema=DOCUMENT_SCHEMA), documents_path)
+    candidate = deepcopy(manifest)
+    documents_meta = candidate["artifacts"]["documents"]
+    documents_meta["bytes"] = documents_path.stat().st_size
+    documents_meta["sha256"] = sha256_file(documents_path)
+    report = validate_full_dataset(config.output_dir, candidate)
+    assert any("1 documents retain structural markup" in error for error in report.errors)
+    documents_path.write_bytes(original_documents)
+
     streams_path = config.output_dir / manifest["artifacts"]["streams"]["path"]
     original_streams = streams_path.read_bytes()
     records = [json.loads(line) for line in original_streams.decode().splitlines()]

@@ -205,7 +205,7 @@ def test_extraction_cleans_safe_residual_control_syntax_and_table_rows() -> None
       <id>2</id><timestamp>x</timestamp><text>
       Useful ''formatted'' article prose remains here. __NOTOC__
       ! colspan="2" | Table header noise
-      A stray comment close --&gt; is removed conservatively.
+      Stray comment closes --&gt; and --!&gt; are removed conservatively.
       Final useful article prose remains here.
       </text></revision></page>
     """
@@ -219,6 +219,7 @@ def test_extraction_cleans_safe_residual_control_syntax_and_table_rows() -> None
     assert "Table header noise" not in text
     assert "__NOTOC__" not in text
     assert "-->" not in text
+    assert "--!>" not in text
 
 
 def test_extraction_drops_inline_table_attribute_residue() -> None:

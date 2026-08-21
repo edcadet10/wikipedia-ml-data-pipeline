@@ -35,7 +35,7 @@ _RESIDUAL_REF_TAG = re.compile(
     flags=re.IGNORECASE | re.DOTALL,
 )
 _FORMATTING_APOSTROPHES = re.compile(r"'{2,}")
-_HTML_COMMENT_MARKER = re.compile(r"<!--|-->")
+_HTML_COMMENT_MARKER = re.compile(r"<!--|--!?>")
 _MAGIC_WORD = re.compile(r"__[A-Z][A-Z_]+__")
 _RESIDUAL_EXTERNAL_LINK = re.compile(r"\[(?:https?:)?//", flags=re.IGNORECASE)
 _RESIDUAL_NONPROSE_TAG = re.compile(

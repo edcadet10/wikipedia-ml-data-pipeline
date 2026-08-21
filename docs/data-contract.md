@@ -1,11 +1,13 @@
 # Data contract
 
 The public artifact contract is versioned by `manifest.json.schema_version`. Complete-
-dump outputs use schema version 2 and pipeline contract version 6. The small `probe`
+dump outputs use schema version 2 and pipeline contract version 7. The small `probe`
 command retains schema version 1 compatibility. Breaking field or semantic changes
 require an appropriate version increment.
 
-Contract version 6 reparses normalized output once to remove newly exposed balanced
+Contract version 7 recognizes both `-->` and the HTML parser's alternate `--!>` comment
+end form. This closes a filtering gap and invalidates contract-6 checkpoints. Contract
+version 6 reparses normalized output once to remove newly exposed balanced
 constructs, safely removes residual formatting controls and table-attribute rows, and
 excludes pages whose remaining structural markup has ambiguous boundaries. It retains
 contract 5's malformed no-space `refname=` handling and invalidates checkpoints from all

@@ -37,7 +37,7 @@ from wikiml.storage import (
 )
 
 _DTYPES: dict[str, str] = {"uint16-le": "<u2", "uint32-le": "<u4"}
-_PIPELINE_CONTRACT_VERSION = 6
+_PIPELINE_CONTRACT_VERSION = 7
 _DATED_SNAPSHOT = re.compile(r"^\d{8}$")
 _RESIDUAL_MARKUP_PATTERNS = (
     re.compile(r"\{\{|\}\}"),
@@ -56,7 +56,7 @@ _RESIDUAL_MARKUP_PATTERNS = (
     re.compile(r"(?m)^\s*(?:\{\||\|\})"),
     re.compile(r"(?im)(?:^|\s)[|!]\s*(?:colspan|rowspan|style|class|bgcolor|align|scope)\s*="),
     re.compile(r"'{2,}"),
-    re.compile(r"<!--|-->"),
+    re.compile(r"<!--|--!?>"),
     re.compile(r"__[A-Z][A-Z_]+__"),
 )
 _DROP_REASONS = {
