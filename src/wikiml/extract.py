@@ -54,7 +54,7 @@ def extract_documents(segment_bz2: bytes, *, wiki: str) -> ExtractionBatch:
     except OSError as exc:
         raise FormatError("stream is not valid bzip2 data") from exc
 
-    parser = ET.XMLPullParser(events=("end",))
+    parser: ET.XMLPullParser[ET.Element] = ET.XMLPullParser(events=("end",))
     try:
         parser.feed(b"<wikiml-root>")
         parser.feed(xml_fragment)
