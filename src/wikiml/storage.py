@@ -33,6 +33,69 @@ DOCUMENT_SCHEMA = pa.schema(
     },
 )
 
+ATTRIBUTION_SCHEMA = pa.schema(
+    [
+        ("wiki", pa.string()),
+        ("page_id", pa.int64()),
+        ("revision_id", pa.int64()),
+        ("revision_timestamp", pa.string()),
+        ("title", pa.string()),
+        ("url", pa.string()),
+        ("license", pa.string()),
+    ],
+    metadata={b"wikiml.schema_version": b"2", b"wikiml.purpose": b"attribution"},
+)
+
+PAGE_DECISION_SCHEMA = pa.schema(
+    [
+        ("page_id", pa.int64()),
+        ("stream_ordinal", pa.int32()),
+        ("decision", pa.string()),
+        ("reason", pa.string()),
+    ],
+    metadata={b"wikiml.schema_version": b"2", b"wikiml.purpose": b"page_accounting"},
+)
+
+
+class CanonicalDocumentHasher:
+    """Incrementally hash already-canonical document rows."""
+
+    def __init__(self) -> None:
+        self._digest = hashlib.sha256()
+
+    def update(self, row: dict[str, Any]) -> None:
+        """Add one row using the public logical-content encoding."""
+
+        encoded = json.dumps(
+            row, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode()
+        self._digest.update(len(encoded).to_bytes(8, "big"))
+        self._digest.update(encoded)
+
+    def hexdigest(self) -> str:
+        """Return the accumulated SHA-256 digest."""
+
+        return self._digest.hexdigest()
+
+
+class CanonicalPageIdHasher:
+    """Incrementally hash an ordered sequence of non-negative page IDs."""
+
+    def __init__(self) -> None:
+        self._digest = hashlib.sha256()
+
+    def update(self, page_id: int) -> None:
+        """Add one page ID with a fixed-width, unambiguous encoding."""
+
+        if page_id < 0:
+            raise ValueError("page_id cannot be negative")
+        self._digest.update(page_id.to_bytes(8, "big", signed=False))
+
+    def hexdigest(self) -> str:
+        """Return the ordered page-ID SHA-256 digest."""
+
+        return self._digest.hexdigest()
+
 
 def sha256_file(path: Path) -> str:
     """Hash a file without loading it into memory."""
@@ -47,13 +110,9 @@ def sha256_file(path: Path) -> str:
 def canonical_document_hash(rows: Iterable[dict[str, Any]]) -> str:
     """Hash logical document content independently of Parquet container metadata."""
 
-    digest = hashlib.sha256()
+    digest = CanonicalDocumentHasher()
     for row in sorted(rows, key=lambda item: int(item["page_id"])):
-        encoded = json.dumps(
-            row, ensure_ascii=False, sort_keys=True, separators=(",", ":")
-        ).encode()
-        digest.update(len(encoded).to_bytes(8, "big"))
-        digest.update(encoded)
+        digest.update(row)
     return digest.hexdigest()
 
 

@@ -8,7 +8,8 @@ import pytest
 
 from wikiml.loader import TokenShard
 from wikiml.models import Document
-from wikiml.tokenize import write_token_shards
+from wikiml.storage import write_documents
+from wikiml.tokenize import write_token_shards, write_token_shards_from_parquet
 
 
 def _document(page_id: int, split: str, text: str) -> Document:
@@ -107,3 +108,28 @@ def test_tokenization_rejects_invalid_shapes(
             context_length=context,
             sequences_per_shard=per_shard,
         )
+
+
+def test_streaming_tokenization_and_training_smoke(
+    tmp_path: Path, tokenizer_factory: Callable[[], Path]
+) -> None:
+    documents = (
+        _document(1, "train", "Alpha is useful . Second line ."),
+        _document(2, "validation", "Café has text ."),
+        _document(3, "test", "Alpha has text ."),
+    )
+    write_documents(documents, tmp_path)
+
+    summary, smoke = write_token_shards_from_parquet(
+        tmp_path / "documents.parquet",
+        tokenizer_path=tokenizer_factory(),
+        eos_token_id=1,
+        output_dir=tmp_path,
+        context_length=4,
+        sequences_per_shard=1,
+        batch_size=1,
+    )
+
+    assert summary.shards
+    assert smoke["model"] == "numpy-bigram-one-step"
+    assert float(smoke["loss_after"]) < float(smoke["loss_before"])

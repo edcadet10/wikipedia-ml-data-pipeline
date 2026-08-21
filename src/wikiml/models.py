@@ -11,6 +11,8 @@ class DropReason(StrEnum):
 
     EMPTY_TEXT = "empty_text"
     INVALID_PAGE = "invalid_page"
+    INSUFFICIENT_TEXT = "insufficient_text"
+    MARKUP_RESIDUE = "markup_residue"
     NON_ARTICLE_NAMESPACE = "non_article_namespace"
     REDIRECT = "redirect"
 
@@ -107,7 +109,9 @@ class TokenShardSummary:
 class TokenizationSummary:
     """Tokenizer contract and all emitted binary shards."""
 
+    tokenizer_path: str
     tokenizer_sha256: str
+    tokenizer_bytes: int
     vocab_size: int
     eos_token_id: int
     dtype: str

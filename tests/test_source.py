@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import bz2
+import hashlib
 from collections.abc import Iterator
+from pathlib import Path
 
 import httpx
 import pytest
 
 from wikiml.errors import FormatError, SourceError
 from wikiml.models import StreamRange
-from wikiml.source import WikimediaClient, parse_multistream_index
+from wikiml.source import WikimediaClient, parse_multistream_catalog, parse_multistream_index
 
 
 class OversizedRangeStream(httpx.SyncByteStream):
@@ -36,6 +38,11 @@ def test_parse_multistream_index_collapses_duplicate_offsets() -> None:
         StreamRange(ordinal=1, start=100, end=149, first_page_id=3),
     )
 
+    catalog = parse_multistream_catalog(raw, dump_size=150)
+    assert catalog.page_ids_by_stream == ((1, 2), (3,))
+    assert catalog.page_count == 3
+    assert len(catalog.page_ids_sha256) == 64
+
 
 @pytest.mark.parametrize(
     "raw",
@@ -44,6 +51,7 @@ def test_parse_multistream_index_collapses_duplicate_offsets() -> None:
         bz2.compress(b"broken\n"),
         bz2.compress(b"ten:1:Alpha\n"),
         bz2.compress(b"100:1:Alpha\n10:2:Beta\n"),
+        bz2.compress(b"10:2:Alpha\n10:1:Beta\n"),
     ],
 )
 def test_parse_multistream_index_rejects_invalid_content(raw: bytes) -> None:
@@ -201,3 +209,37 @@ def test_client_stops_streaming_when_server_exceeds_requested_range() -> None:
 def test_client_requires_descriptive_user_agent() -> None:
     with pytest.raises(ValueError, match="user_agent"):
         WikimediaClient(user_agent="")
+
+
+def test_client_streams_file_with_both_hashes(tmp_path: Path) -> None:
+    payload = b"bounded file payload"
+    transport = httpx.MockTransport(
+        lambda _request: httpx.Response(
+            200, content=payload, headers={"Content-Length": str(len(payload))}
+        )
+    )
+    path = tmp_path / "artifact.bin"
+
+    with WikimediaClient(transport=transport) as client:
+        result = client.download_to_path(
+            "https://example.test/artifact", path, max_bytes=100, expected_bytes=len(payload)
+        )
+
+    assert path.read_bytes() == payload
+    assert result.sha1 == hashlib.sha1(payload, usedforsecurity=False).hexdigest()
+    assert result.sha256 == hashlib.sha256(payload).hexdigest()
+
+
+def test_client_removes_truncated_file(tmp_path: Path) -> None:
+    path = tmp_path / "artifact.bin"
+    transport = httpx.MockTransport(lambda _request: httpx.Response(200, content=b"short"))
+
+    with (
+        WikimediaClient(transport=transport) as client,
+        pytest.raises(SourceError, match="Content-Length changed"),
+    ):
+        client.download_to_path(
+            "https://example.test/artifact", path, max_bytes=100, expected_bytes=10
+        )
+
+    assert not path.exists()
